@@ -1,3 +1,4 @@
+from telebot.async_telebot import AsyncTeleBot as telebot
 import re
 import requests
 from bs4 import BeautifulSoup
@@ -12,7 +13,7 @@ def find_all_files(soup: BeautifulSoup) -> dict:
     raw_tags = soup.find_all("a")
     tags = {}
     for tag in raw_tags:
-        r_res = re.match(r'.*?href=\"(.*?)\".*?title=\"(.*?)\"', str(tag))
+        r_res = re.match(setting.reg_expression, str(tag))
         if r_res != None:
             tags[r_res[1]] = r_res[2]
 
@@ -56,14 +57,16 @@ async def add_subjetct(message):
                  "counter": 0
             }
         subsctiptions[message.text]["subs"].append(message.chat.id)
-        json.dump(subsctiptions, "dump.json")
+        with open("dump.json", "w") as dump_file:
+            json.dump(subsctiptions, dump_file)
         await bot.send_message(message.chat.id, setting.success_add_message)
-    except:
-        await bot.send_message(message.chat.id, setting.ask_for_help_message)
+    except Exception as e:
+        await bot.send_message(message.chat.id, setting.ask_for_help_message + str(e))
 
 
 async def check_new():
     to_delete = []
+    # print([site for site in subsctiptions])
     for site in subsctiptions: 
         if subsctiptions[site]['counter'] == 2:
             to_delete.append(site)
@@ -82,6 +85,7 @@ async def check_new():
             subsctiptions[site]["hash"] = hashlib.md5(soup.prettify().encode('utf-8')).hexdigest()
             subsctiptions[site]["files"] = find_all_files(soup)
         else: 
+            print(f"Else in {site}", end=" ")
             subsctiptions[site]["hash"] = hashlib.md5(soup.prettify().encode('utf-8')).hexdigest()
             new_files = check_new_files(subsctiptions[site]["files"], find_all_files(soup))
             if new_files != "":
@@ -91,6 +95,8 @@ async def check_new():
                         bot.send_message(sub, f"Новые файлы на сайте {site}:\n{new_files}")
                     except:
                         print(f"Ошибка с пользователем {sub}")
+            else:
+                print("Хэш новый, файлы те же")
     # json.dump(subsctiptions, "dump.json")
     with open("dump.json", "w") as dump_file:
         json.dump(subsctiptions, dump_file)

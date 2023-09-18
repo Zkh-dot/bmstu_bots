@@ -1,2 +1,2 @@
-# telegram_pipes
-Code to create redirectable pipes of messages in telegram
+# Notificaation on new labs in bmstu elearning site 
+Most usefull to IU5 students

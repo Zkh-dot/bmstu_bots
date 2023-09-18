@@ -1,4 +1,4 @@
-from telebot.async_telebot import AsyncTeleBot as telebot
+from telebot.async_telebot import AsyncTeleBot as telebo
 import re
 import requests
 from bs4 import BeautifulSoup

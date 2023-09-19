@@ -31,7 +31,7 @@ def check_new_files(old, new):
 async def ping():
     while(True):
         await check_new()
-        await asyncio.sleep(10)
+        await asyncio.sleep(setting.sleep_time)
 
 try:
     with open("dump.json") as dump_file:

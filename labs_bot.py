@@ -10,13 +10,12 @@ import datetime
 import os
 
 def find_all_files(soup: BeautifulSoup) -> dict:
-    raw_tags = soup.find_all("a")
+    raw_tags = [re.sub(r"\n\s*", "", str(tag)) for tag in  soup.find_all("a")]
     tags = {}
     for tag in raw_tags:
-        r_res = re.match(setting.reg_expression, str(tag))
+        r_res = re.match(setting.reg_expression, str(tag).replace("\\n", ""))
         if r_res != None:
             tags[r_res[1]] = r_res[2]
-
     return tags
 
 
@@ -41,10 +40,20 @@ except FileNotFoundError:
 
 bot = telebot(setting.token)
 
-    # json.dump(json_to_save, file_name)
+
+@bot.message_handler(commands=["/help"])
+async def help(message):
+    await bot.send_message(message.chat.id, "Тебе уже не поможешь")
+
 
 @bot.message_handler(func=lambda call: True)
 async def add_subjetct(message):
+    if message.text.split()[0] != "/add" and message.text[0] == "/":
+        print(message.text)
+        await bot.send_message(message.chat.id, f"К сожалению, я не знаю никаких комманд кроме /add. Пожалуйста, не делайте так больше")
+        return -1
+    elif message.text.split()[0] == "/add":
+        message.text = " ".join(message.text.split()[1:])
     if len(message.text.split()) != 1:
         await bot.send_message(message.chat.id, setting.page_error)
         return 404
@@ -72,27 +81,30 @@ async def check_new():
             to_delete.append(site)
             continue
         try:
-            res = requests.post(site, data={'page': '3'})
+            res = requests.get(site, data={'page': '3'})
         except Exception as e: 
             subsctiptions[site]['counter'] += 1
             print(f"{site} вышел с ошибкой {e}\nСчетчик:{subsctiptions[site]['counter']}")
             continue
         soup = BeautifulSoup(res.text)
-        if hashlib.md5(soup.prettify().encode('utf-8')).hexdigest() == subsctiptions[site]["hash"]: 
+        with open(f"temp_{site.split('//')[1].split('.')[0]}.html", "w") as temp_html:
+            temp_html.write("".join(find_all_files(soup)))
+        
+        if hashlib.md5("".join(find_all_files(soup)).encode("1251")).hexdigest() == subsctiptions[site]["hash"]: 
             print(f"{site} не изменился!")
         elif subsctiptions[site]["hash"] == "":
             print(f"{site} проверен первый раз!")
-            subsctiptions[site]["hash"] = hashlib.md5(soup.prettify().encode('utf-8')).hexdigest()
+            subsctiptions[site]["hash"] = hashlib.md5("".join(find_all_files(soup)).encode("1251")).hexdigest()
             subsctiptions[site]["files"] = find_all_files(soup)
         else: 
             print(f"Else in {site}", end=" ")
-            subsctiptions[site]["hash"] = hashlib.md5(soup.prettify().encode('utf-8')).hexdigest()
+            subsctiptions[site]["hash"] = hashlib.md5("".join(find_all_files(soup)).encode("cp1251")).hexdigest()
             new_files = check_new_files(subsctiptions[site]["files"], find_all_files(soup))
             if new_files != "":
                 subsctiptions[site]["files"] == find_all_files(soup)
                 for sub in subsctiptions[site]["subs"]:
                     try:
-                        bot.send_message(sub, f"Новые файлы на сайте {site}:\n{new_files}")
+                        await bot.send_message(sub, f"Новые файлы на сайте {site}:\n{new_files}")
                     except:
                         print(f"Ошибка с пользователем {sub}")
             else:
@@ -117,4 +129,3 @@ loop.run_until_complete(bot_task)
 asyncio.run(bot.polling())
 
 print("hi")
-

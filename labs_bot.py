@@ -54,7 +54,7 @@ async def add_subjetct(message):
         return -1
     elif message.text.split()[0] == "/add":
         message.text = " ".join(message.text.split()[1:])
-    if len(message.text.split()) != 1:
+    if not re.match(setting.accept_page, message.text):
         await bot.send_message(message.chat.id, setting.page_error)
         return 404
     try:

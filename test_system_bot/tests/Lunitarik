@@ -1,0 +1,32 @@
+{
+    "questions": [
+        {
+            "Question1": {
+                "text for option1_1": ["option1"],
+                "text for option2_1": ["option2", "option2"]
+            }
+        },
+        {
+            "Question2": {
+                "text for option1_2": ["option1"],
+                "text for option2_2": ["option2"]
+            }
+        }
+    ],
+    "results": {
+        "option1": "result1",
+        "option2": "result2"
+    },
+    "test_results": {
+        "result1": {
+            "option1": [0, 1],
+            "option2": 1
+        },
+        "result2": {
+            "option1": [1, 2]
+        },
+        "result3": {
+            "option2": [2,10]
+        }
+    }
+}

@@ -48,6 +48,11 @@ async def help(message):
 
 @bot.message_handler(func=lambda call: True)
 async def add_subjetct(message):
+    if message.chat.username not in setting.white_list:
+        await bot.send_message(message.chat.id, "пошел нахуй.")
+        await bot.send_message(message.chat.id, "Я теперь работаю по белому списку. Если тебе кажется, что ты не должен идти нахуй и тебе хочется в список, напиши @Lunitarik")
+        return 403
+
     if message.text.split()[0] != "/add" and message.text[0] == "/":
         print(message.text)
         await bot.send_message(message.chat.id, f"К сожалению, я не знаю никаких комманд кроме /add. Пожалуйста, не делайте так больше")
@@ -56,6 +61,7 @@ async def add_subjetct(message):
         message.text = " ".join(message.text.split()[1:])
     if not re.match(setting.accept_page, message.text):
         await bot.send_message(message.chat.id, setting.page_error)
+        print(f"from {message.chat.username} {message.text}")
         return 404
     try:
         if message.text not in subsctiptions:
@@ -87,8 +93,6 @@ async def check_new():
             print(f"{site} вышел с ошибкой {e}\nСчетчик:{subsctiptions[site]['counter']}")
             continue
         soup = BeautifulSoup(res.text)
-        with open(f"temp_{site.split('//')[1].split('.')[0]}.html", "w") as temp_html:
-            temp_html.write("".join(find_all_files(soup)))
         
         if hashlib.md5("".join(find_all_files(soup)).encode("1251")).hexdigest() == subsctiptions[site]["hash"]: 
             print(f"{site} не изменился!")

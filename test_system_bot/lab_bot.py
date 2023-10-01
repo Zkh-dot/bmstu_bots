@@ -42,7 +42,7 @@ def get_test_question(message, test):
         bot.send_message(message.chat.id, config.creation_end)
         del test
     elif message.text == config.end_test_command:
-        evaluate_test(message, test)     
+        publish_test(message, test)     
     else:
         test["questions"].append({message.text: {}})    
         bot.send_message(message.chat.id, config.ask_for_option)
@@ -53,7 +53,7 @@ def get_test_option(message, test):
     if message.text == config.abort_creation_command:
         bot.send_message(message.chat.id, config.creation_end)
     elif message.text == config.end_test_command:
-        evaluate_test(message, test)     
+        publish_test(message, test)     
     elif message.text == config.end_question_command:
         bot.send_message(message.chat.id, config.ask_for_question)
         bot.register_next_step_handler(message, lambda m: get_test_question(m, test))
@@ -62,11 +62,12 @@ def get_test_option(message, test):
         bot.send_message(message.chat.id, config.ask_for_option_param)
         bot.register_next_step_handler(message, lambda m: get_option_params(m, test, message.text))
 
+
 def get_option_params(message, test, question):
     if message.text == config.abort_creation_command:
         bot.send_message(message.chat.id, config.creation_end)
     elif message.text == config.end_test_command:
-        evaluate_test(message, test)     
+        publish_test(message, test)     
     elif message.text == config.end_question_command:
         bot.send_message(message.chat.id, config.ask_for_question)
         bot.register_next_step_handler(message, lambda m: get_test_question(m, test))
@@ -79,11 +80,36 @@ def get_option_params(message, test, question):
         bot.register_next_step_handler(message, lambda m: get_option_params(m, test, question))
 
 
-def evaluate_test(message, test):
+def publish_test(message, test):
     # TODO: check
-    with open(os.path.join("tests", message.chat.username), 'w') as new_file:
-        json.dump(test, new_file)
-    bot.send_message(message.chat.id, config.end_test_creation)
+    if evaluate(test):
+        with open(os.path.join("tests", message.chat.username), 'w') as new_file:
+            json.dump(test, new_file)
+        bot.send_message(message.chat.id, config.end_test_creation)
+    else:
+        bot.send_message(message.chat.id, config.not_valid_test_creation_error)
+    del test
+
+def evaluate(test):
+    def get_all_options(test):
+        all = []
+        for i in range(len(test["questions"])):
+            for question in test["questions"][-1][list(test["questions"][-1].keys())[0]]:
+                for option in test["questions"][-1][list(test["questions"][-1].keys())[0]][question]:
+                    all.append(*test["questions"][-1][list(test["questions"][-1].keys())[0]][question][option])
+        return all
+    def get_result_options(test):
+        all = []
+        for result in test["test_results"]:
+            for option in test["test_results"][result]:
+                all.append(*test["test_results"][result][option])
+
+    all_options = get_all_options(test)
+    result_options = get_result_options(test)
+    if len(all_options) == 0 or set(all_options) != set(result_options):
+            return False
+    return True
+
 
 @bot.message_handler(content_types=["text"])
 def start_test(message):
@@ -91,7 +117,7 @@ def start_test(message):
         with open(os.path.join(".\\tests", message.text[1:]), encoding="utf-8") as test_file:
             test = json.load(test_file)
     except:
-        bot.send_message(message.chat.id, config.test_readfile_error)
+        bot.send_message(message.chat.id, config.test_readfile_error, reply_markup=telebot.types.ReplyKeyboardRemove())
     else:
         bot.send_message(message.chat.id, config.start_test)
     answers = test["results"].copy()
@@ -99,8 +125,6 @@ def start_test(message):
         answers[a] = 0
     print("and =", answers)
     test_step(message, 0, test, answers)
-    
-    # print(list(test["questions"][0].keys())[0])
     
 
 def test_step(message, i, test, answers):
@@ -110,14 +134,12 @@ def test_step(message, i, test, answers):
                 answers[option] += 1
                 print(answers)
             except KeyError:
-                bot.send_message(message.chat.id, config.test_wrongresult_error)
+                bot.send_message(message.chat.id, config.test_wrongresult_error, reply_markup=telebot.types.ReplyKeyboardRemove())
     if i >= len(test["questions"]):
-        # validate(message, test, answers)
         try:
             test_results(message, test, answers)
         except Exception as e:
-            bot.send_message(message.chat.id, config.test_expired_error)
-        # bot.send_message(message.chat.id, f"Тест завершен! Ваш результат: \n{test['results'][max(answers, key=answers.get)]}", reply_markup=telebot.types.ReplyKeyboardRemove())
+            bot.send_message(message.chat.id, config.test_expired_error, reply_markup=telebot.types.ReplyKeyboardRemove())
     
     else:
         buttons = []
@@ -151,6 +173,3 @@ def test_results(message, test, answers):
 if __name__ == "__main__":
     os.makedirs("tests", exist_ok=True)
     bot.infinity_polling()
-    # with open(os.path.join(".\\tests", "Lunitarik.json")) as test_file:
-    #     test = json.load(test_file)
-    # print(list(test["questions"][0].keys())[0])

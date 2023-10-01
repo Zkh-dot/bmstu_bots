@@ -45,7 +45,7 @@ def get_test_question(message, test):
         evaluate_test(message, test)     
     else:
         test["questions"].append({message.text: {}})    
-        bot.send_message(message.chat.id, config.ask_for_option_param)
+        bot.send_message(message.chat.id, config.ask_for_option)
         bot.register_next_step_handler(message, lambda m: get_test_option(m, test))
 
 

@@ -1,4 +1,5 @@
-token=""
+import os
+token = os.environ["test_token"]
 
 # get users file mesages
 saved_text = "Сохранил ваш тест!"

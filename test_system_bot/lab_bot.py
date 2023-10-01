@@ -37,12 +37,17 @@ def start_test_creation(message):
     bot.register_next_step_handler(message, lambda m: get_test_question(m, test))
 
 
+def start_result(message, test):
+    bot.send_message(message.chat.id, config.ask_for_result)
+    bot.register_next_step_handler(message, lambda m: get_results(m, test))
+
+
 def get_test_question(message, test):
     if message.text == config.abort_creation_command:
         bot.send_message(message.chat.id, config.creation_end)
         del test
     elif message.text == config.end_test_command:
-        publish_test(message, test)     
+        start_result(message, test)     
     else:
         test["questions"].append({message.text: {}})    
         bot.send_message(message.chat.id, config.ask_for_option)
@@ -53,7 +58,7 @@ def get_test_option(message, test):
     if message.text == config.abort_creation_command:
         bot.send_message(message.chat.id, config.creation_end)
     elif message.text == config.end_test_command:
-        publish_test(message, test)     
+        start_result(message, test)     
     elif message.text == config.end_question_command:
         bot.send_message(message.chat.id, config.ask_for_question)
         bot.register_next_step_handler(message, lambda m: get_test_question(m, test))
@@ -67,7 +72,7 @@ def get_option_params(message, test, question):
     if message.text == config.abort_creation_command:
         bot.send_message(message.chat.id, config.creation_end)
     elif message.text == config.end_test_command:
-        publish_test(message, test)     
+        start_result(message, test)     
     elif message.text == config.end_question_command:
         bot.send_message(message.chat.id, config.ask_for_question)
         bot.register_next_step_handler(message, lambda m: get_test_question(m, test))
@@ -80,6 +85,36 @@ def get_option_params(message, test, question):
         bot.register_next_step_handler(message, lambda m: get_option_params(m, test, question))
 
 
+
+def get_results(message, test):
+    if message.text == config.abort_creation_command:
+        bot.send_message(message.chat.id, config.creation_end)
+    elif message.text == config.end_test_command:
+        publish_test(message, test)    
+    else:
+        bot.send_message(message.chat.id, config.ask_for_result_param)
+        test["test_results"][message.text] = {}
+        bot.register_next_step_handler(message, lambda m: get_result_param(m, test, message.text))
+
+def get_result_param(message, test, result):
+    if message.text == config.abort_creation_command:
+        bot.send_message(message.chat.id, config.creation_end)
+    elif message.text == config.end_test_command:
+        publish_test(message, test)    
+    elif message.text == config.end_result_command:
+        bot.send_message(message.chat.id, config.ask_for_result)
+        bot.register_next_step_handler(message, lambda m: get_results(m, test))
+    else:
+        try:
+            test["test_results"][result][message.text.split()[0]] = [int(message.text.split()[1]), int(message.text.split()[2])]
+        except:
+            bot.send_message(message.chat.id, config.not_valid_test_creation_error)
+            del test
+            return
+        bot.send_message(message.chat.id, config.ask_for_result_param)
+        bot.register_next_step_handler(message, lambda m: get_result_param(m, test, message.text))
+
+
 def publish_test(message, test):
     # TODO: check
     if evaluate(test):
@@ -90,19 +125,24 @@ def publish_test(message, test):
         bot.send_message(message.chat.id, config.not_valid_test_creation_error)
     del test
 
+def get_all_options(test):
+    all = []
+    for i in range(len(test["questions"])):
+        for question in test["questions"][-1][list(test["questions"][-1].keys())[0]]:
+            for option in test["questions"][-1][list(test["questions"][-1].keys())[0]][question]:
+                all.append(*test["questions"][-1][list(test["questions"][-1].keys())[0]][question][option])
+    return all
+def get_result_options(test):
+    all = {}
+    for result in test["test_results"]:
+        for option in test["test_results"][result]:
+                all[option] = 0
+    return all
+
+
 def evaluate(test):
-    def get_all_options(test):
-        all = []
-        for i in range(len(test["questions"])):
-            for question in test["questions"][-1][list(test["questions"][-1].keys())[0]]:
-                for option in test["questions"][-1][list(test["questions"][-1].keys())[0]][question]:
-                    all.append(*test["questions"][-1][list(test["questions"][-1].keys())[0]][question][option])
-        return all
-    def get_result_options(test):
-        all = []
-        for result in test["test_results"]:
-            for option in test["test_results"][result]:
-                all.append(*test["test_results"][result][option])
+    return True
+
 
     all_options = get_all_options(test)
     result_options = get_result_options(test)
@@ -114,16 +154,14 @@ def evaluate(test):
 @bot.message_handler(content_types=["text"])
 def start_test(message):
     try: 
-        with open(os.path.join(".\\tests", message.text[1:]), encoding="utf-8") as test_file:
+        with open(os.path.join("./tests", message.text[1:]), encoding="utf-8") as test_file:
             test = json.load(test_file)
-    except:
+    except Exception as e:
         bot.send_message(message.chat.id, config.test_readfile_error, reply_markup=telebot.types.ReplyKeyboardRemove())
     else:
         bot.send_message(message.chat.id, config.start_test)
-    answers = test["results"].copy()
-    for a in answers:
-        answers[a] = 0
-    print("and =", answers)
+    answers = get_result_options(test)
+
     test_step(message, 0, test, answers)
     
 
@@ -132,7 +170,6 @@ def test_step(message, i, test, answers):
         for option in test["questions"][max(i-1, 0)][list(test["questions"][max(i-1, 0)].keys())[0]][message.text]:
             try:
                 answers[option] += 1
-                print(answers)
             except KeyError:
                 bot.send_message(message.chat.id, config.test_wrongresult_error, reply_markup=telebot.types.ReplyKeyboardRemove())
     if i >= len(test["questions"]):
@@ -147,14 +184,11 @@ def test_step(message, i, test, answers):
             buttons.append(telebot.types.KeyboardButton(option  ))
         markup = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
         markup.add(*buttons)
-        print(test["questions"][i][list(test["questions"][i].keys())[0]])
         bot.send_message(message.chat.id, list(test["questions"][i].keys())[0], reply_markup=markup)
         bot.register_next_step_handler(message, lambda m: test_step(m, i + 1, test, answers))
 
 
 def test_results(message, test, answers):
-    print(answers)
-    print(test["test_results"])
     for result in test["test_results"]:
         for option in test["test_results"][result]:
             if type(test["test_results"][result][option]) == int:
@@ -165,9 +199,6 @@ def test_results(message, test, answers):
             bot.send_message(message.chat.id, config.test_result + result, reply_markup=telebot.types.ReplyKeyboardRemove())
             return
     bot.send_message(message.chat.id, config.notexistingresult_error, reply_markup=telebot.types.ReplyKeyboardRemove())
-                
-            
-
 
 
 if __name__ == "__main__":

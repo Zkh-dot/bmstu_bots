@@ -60,9 +60,9 @@ def get_test_option(message, test):
     else:
         test["questions"][-1][list(test["questions"][-1].keys())[0]][message.text] = []
         bot.send_message(message.chat.id, config.ask_for_option_param)
-        bot.register_next_step_handler(message, lambda m: get_option_params(m, test))
+        bot.register_next_step_handler(message, lambda m: get_option_params(m, test, message.text))
 
-def get_option_params(message, test):
+def get_option_params(message, test, question):
     if message.text == config.abort_creation_command:
         bot.send_message(message.chat.id, config.creation_end)
     elif message.text == config.end_test_command:
@@ -71,16 +71,18 @@ def get_option_params(message, test):
         bot.send_message(message.chat.id, config.ask_for_question)
         bot.register_next_step_handler(message, lambda m: get_test_question(m, test))
     elif message.text == config.end_options_command:
-        bot.send_message(message.chat.id, config.asf_for_option)
+        bot.send_message(message.chat.id, config.ask_for_option)
         bot.register_next_step_handler(message, lambda m: get_test_option(m, test))
     else:
-        test["questions"][-1][list(test["questions"][-1].keys())[0]][message.text].append(message.text)
+        test["questions"][-1][list(test["questions"][-1].keys())[0]][question].append(message.text)
         bot.send_message(message.chat.id, config.ask_for_option_param)
-        bot.register_next_step_handler(message, lambda m: get_option_params(m, test))
+        bot.register_next_step_handler(message, lambda m: get_option_params(m, test, question))
 
 
 def evaluate_test(message, test):
     # TODO: check
+    with open(os.path.join("tests", message.chat.username), 'w') as new_file:
+        json.dump(test, new_file)
     bot.send_message(message.chat.id, config.end_test_creation)
 
 @bot.message_handler(content_types=["text"])
